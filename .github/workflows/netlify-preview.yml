@@ -30,4 +30,20 @@ jobs:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         run: |
           npm install -g netlify-cli
-          netlify deploy --site $NETLIFY_SITE_ID --auth $NETLIFY_AUTH_TOKEN --dir dist --message "Deploy preview for PR ${{ github.event.number }}" --alias "pr-${{ github.event.number }}"
+          deploy_output=$(netlify deploy --site $NETLIFY_SITE_ID --auth $NETLIFY_AUTH_TOKEN --dir dist --message "Deploy preview for PR ${{ github.event.number }}" --alias "pr-${{ github.event.number }}" --json)
+          deploy_url=$(echo $deploy_output | jq -r '.deploy_url')
+          echo "deploy_url=${deploy_url}" >> $GITHUB_ENV
+
+      - name: Post deploy URL to PR
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const url = process.env.deploy_url;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `The deploy preview is ready: ${url}`
+            });
